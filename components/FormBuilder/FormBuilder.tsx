@@ -1,23 +1,19 @@
-"use client";
-
-import React, {
-    HTMLElementType,
-    useCallback,
-    useState,
-    useTransition,
-} from "react";
+import React from "react";
+import { JSX, useCallback, useState, useTransition } from "react";
 
 export type TField = {
     fieldKey: string;
     fieldLabel: string;
 } & (
     | {
-          fieldType: "input";
-          fieldValue: string | number;
-      }
-    | {
+          isContainer: true;
           fieldType: "div" | "fieldset";
           fieldValue: TField[];
+      }
+    | {
+          isContainer: false;
+          fieldType: "input";
+          fieldValue: string | number;
       }
 );
 
@@ -27,141 +23,109 @@ export type TFormBuilder = {
 
 export type TFieldRenderer = {
     field: TField;
+    onFieldUpdated: (field: TField) => void;
+    onFieldIntialized: (field: TField) => void;
 };
 
-const isField = (obj: object): boolean => {
-    const fieldObj: TField = {
-        fieldKey: "",
-        fieldLabel: "",
-        fieldType: "input",
-        fieldValue: "",
-    };
+const FieldRenderer = React.memo(
+    ({ field, onFieldUpdated, onFieldIntialized }: TFieldRenderer) => {
+        const [state, setState] = useState<TField>(field);
+        const [isPending, startTransition] = useTransition();
 
-    const fieldKeys = Object.keys(fieldObj);
-    const objKeys = Object.keys(obj);
+        if (state.isContainer) {
+            return state.fieldValue.map((subField) => {
+                return (
+                    <fieldset
+                        key={subField.fieldKey}
+                        className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4"
+                    >
+                        <legend className="fieldset-legend">
+                            {state.fieldLabel}
+                        </legend>
+                        <FieldRenderer
+                            onFieldIntialized={onFieldIntialized}
+                            onFieldUpdated={onFieldUpdated}
+                            key={subField.fieldKey}
+                            field={subField}
+                        />
+                    </fieldset>
+                );
+            });
+        } else {
+            const FieldTypeComponent = state.fieldType;
 
-    if (fieldKeys.length != objKeys.length) return false;
+            const handleChange = (field: TField, newValue: string | number) => {
+                if (field.isContainer) return;
 
-    const fieldsCheck = fieldKeys.map((field) => {
-        if (!objKeys.includes(field)) {
-            return { field: false };
-        }
+                startTransition(() => {
+                    setState((prev) => {
+                        if (prev.isContainer) return prev;
 
-        return { field: true };
-    });
-    return true;
-};
-
-export type TWrapFieldWithLabel = {
-    WrapperElement: HTMLElementType;
-    field: TField;
-    fieldRenderer: React.ReactNode;
-};
-
-const WrapFieldWithLabel = React.memo(
-    ({ WrapperElement, field, fieldRenderer }: TWrapFieldWithLabel) => {
-        return (
-            <WrapperElement className="flex flex-col border-[1] w-full">
-                <div className="bg-gray-500 text-white font-bold">
-                    {field.fieldLabel}
-                </div>
-                <div>{fieldRenderer}</div>
-            </WrapperElement>
-        );
-    }
-);
-
-WrapFieldWithLabel.displayName = "WrapFieldWithLabel";
-
-const FieldRenderer = ({ field }: TFieldRenderer) => {
-    const [fieldState, setFieldState] = useState<TField>(field);
-    const [isPending, startTransition] = useTransition();
-
-    const handleChangeValue = useCallback(
-        (field: TField, newValue: string | number) => {
-            if (!isField(field)) return;
-
-            startTransition(() => {
-                setFieldState((prev) => {
-                    if (prev.fieldType === "input") {
                         return {
                             ...prev,
                             fieldValue: newValue,
                         };
-                    }
-                    return prev;
-                });
-            });
-        },
-        []
-    );
-
-    switch (fieldState.fieldType) {
-        case "fieldset":
-        case "div":
-            {
-                const FieldTypeComponent = fieldState.fieldType;
-
-                if (Array.isArray(fieldState.fieldValue)) {
-                    return fieldState.fieldValue.map((subFieldState) => {
-                        return (
-                            <FieldTypeComponent
-                                className="w-full"
-                                key={subFieldState.fieldKey}
-                            >
-                                <div>{subFieldState.fieldLabel}</div>
-                                <div className="p-1">
-                                    <FieldRenderer
-                                        field={subFieldState.fieldValue}
-                                    />
-                                </div>
-                            </FieldTypeComponent>
-                        );
                     });
-                }
-            }
-            break;
 
-        case "input":
-            {
-                const FieldTypeComponent = fieldState.fieldType;
+                    onFieldUpdated(field);
+                });
+            };
 
-                return (
-                    <WrapFieldWithLabel
-                        field={fieldState}
-                        WrapperElement={"div"}
-                        fieldRenderer={
-                            <FieldTypeComponent
-                                className="w-full"
-                                value={fieldState.fieldValue}
-                                onChange={(event) =>
-                                    handleChangeValue(
-                                        fieldState,
-                                        event.currentTarget.value
-                                    )
-                                }
-                            />
+            return (
+                <div className="field">
+                    <label className="label">{field.fieldLabel}</label>
+                    <FieldTypeComponent
+                        className="input"
+                        placeholder={state.fieldLabel}
+                        value={state.fieldValue}
+                        onChange={(event) =>
+                            handleChange(state, event.currentTarget.value)
                         }
                     />
-                );
-            }
-            break;
+                </div>
+            );
+        }
     }
-};
+);
+
+FieldRenderer.displayName = "FieldRenderer";
 
 const FormBuilder = ({ fields }: TFormBuilder) => {
-    const FieldRendererMemo = React.memo(FieldRenderer);
+    const [state, setState] = useState<TField[]>();
+
+    const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+    const [isPending, startTransition] = useTransition();
+
+    const handleSubmit = useCallback(() => {
+        setIsSubmitted(true);
+    }, []);
+
+    const handleFieldUpdated = useCallback((field: TField) => {
+        console.log("updateD!", field);
+    }, []);
+
+    const handleFieldIntialized = useCallback((field: TField) => {
+        console.log("updateD!", field);
+    }, []);
 
     return (
-        <form className="flex flex-col gap-2">
+        <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
+            <legend className="fieldset-legend">Form</legend>
             {fields.map((field) => {
                 return (
-                    <div key={field.fieldKey} className="flex flex-row">
-                        <FieldRendererMemo field={field} />
-                    </div>
+                    <FieldRenderer
+                        key={field.fieldKey}
+                        field={field}
+                        onFieldIntialized={handleFieldIntialized}
+                        onFieldUpdated={handleFieldUpdated}
+                    />
                 );
             })}
-        </form>
+            <button className="btn btn-neutral mt-4" onClick={handleSubmit}>
+                Submit
+            </button>
+            {isSubmitted && <div>Submitted!</div>}
+        </fieldset>
     );
 };
 
