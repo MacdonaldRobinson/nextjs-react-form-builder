@@ -23,15 +23,21 @@ const MomacoEditor = ({
         editor: editor.IStandaloneCodeEditor,
         monaco: Monaco
     ) => {
-        const codeStr = JSON.stringify(code);
-        const formatedCode = beautify.js(codeStr);
-
-        editor.setValue(formatedCode);
         editorRef.current = editor; // Save editor instance
 
         window.addEventListener("reset", () => {
             editor.layout();
         });
+    };
+
+    const updateEditorCode = (newCode: object) => {
+        console.log("updateEditorCode", editorRef);
+        if (!editorRef || !editorRef.current) return;
+
+        const codeStr = JSON.stringify(newCode);
+        const formatedCode = beautify.js(codeStr);
+
+        editorRef.current.setValue(formatedCode);
     };
 
     const handleOnChange = (
@@ -55,6 +61,12 @@ const MomacoEditor = ({
 
         onSubmitNewCode(newCode);
     };
+
+    useEffect(() => {
+        if (editorRef.current) {
+            updateEditorCode(code);
+        }
+    }, [code, editorRef]);
 
     return (
         <fieldset className="flex flex-col h-full w-full">
