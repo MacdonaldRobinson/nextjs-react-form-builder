@@ -1,4 +1,4 @@
-import React from "react";
+import React, { RefObject, useEffect, useRef } from "react";
 import { JSX, useCallback, useState, useTransition } from "react";
 
 export type TField = {
@@ -23,75 +23,67 @@ export type TFormBuilder = {
 
 export type TFieldRenderer = {
     field: TField;
-    onFieldUpdated: (field: TField) => void;
-    onFieldIntialized: (field: TField) => void;
+    onFieldUpdated: (field: TField, newValue: string | number) => void;
+    onFieldIntialized: (
+        field: TField,
+        refObject: RefObject<HTMLElement | null>
+    ) => void;
 };
 
-const FieldRenderer = React.memo(
-    ({ field, onFieldUpdated, onFieldIntialized }: TFieldRenderer) => {
-        const [state, setState] = useState<TField>(field);
-        const [isPending, startTransition] = useTransition();
-
-        if (state.isContainer) {
-            return state.fieldValue.map((subField) => {
-                return (
-                    <fieldset
-                        key={subField.fieldKey}
-                        className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4"
-                    >
-                        <legend className="fieldset-legend">
-                            {state.fieldLabel}
-                        </legend>
+const FieldRenderer = ({
+    field,
+    onFieldUpdated,
+    onFieldIntialized,
+}: TFieldRenderer) => {
+    const elementRef = useRef(null);
+    useEffect(() => {
+        onFieldIntialized(field, elementRef);
+    }, [elementRef]);
+    if (field.isContainer) {
+        return (
+            <fieldset
+                key={field.fieldKey}
+                className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4"
+            >
+                <legend className="fieldset-legend">{field.fieldLabel}</legend>
+                {field.fieldValue.map((subField) => {
+                    return (
                         <FieldRenderer
                             onFieldIntialized={onFieldIntialized}
                             onFieldUpdated={onFieldUpdated}
                             key={subField.fieldKey}
                             field={subField}
                         />
-                    </fieldset>
-                );
-            });
-        } else {
-            const FieldTypeComponent = state.fieldType;
+                    );
+                })}
+            </fieldset>
+        );
+    } else {
+        const FieldTypeComponent = field.fieldType;
 
-            const handleChange = (field: TField, newValue: string | number) => {
-                if (field.isContainer) return;
+        const handleChange = (field: TField, newValue: string | number) => {
+            onFieldUpdated(field, newValue);
+        };
 
-                startTransition(() => {
-                    setState((prev) => {
-                        if (prev.isContainer) return prev;
-
-                        return {
-                            ...prev,
-                            fieldValue: newValue,
-                        };
-                    });
-
-                    onFieldUpdated(field);
-                });
-            };
-
-            return (
-                <div className="field">
-                    <label className="label">{field.fieldLabel}</label>
-                    <FieldTypeComponent
-                        className="input"
-                        placeholder={state.fieldLabel}
-                        value={state.fieldValue}
-                        onChange={(event) =>
-                            handleChange(state, event.currentTarget.value)
-                        }
-                    />
-                </div>
-            );
-        }
+        return (
+            <div className="field">
+                <label className="label">{field.fieldLabel}</label>
+                <FieldTypeComponent
+                    ref={elementRef}
+                    className="input"
+                    placeholder={field.fieldLabel}
+                    value={field.fieldValue}
+                    onChange={(event) =>
+                        handleChange(field, event.currentTarget.value)
+                    }
+                />
+            </div>
+        );
     }
-);
-
-FieldRenderer.displayName = "FieldRenderer";
+};
 
 const FormBuilder = ({ fields }: TFormBuilder) => {
-    const [state, setState] = useState<TField[]>();
+    const [state, setState] = useState<TField[]>([]);
 
     const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
     const [isPending, startTransition] = useTransition();
@@ -101,12 +93,28 @@ const FormBuilder = ({ fields }: TFormBuilder) => {
     }, []);
 
     const handleFieldUpdated = useCallback((field: TField) => {
-        console.log("updateD!", field);
+        //console.log("ram", field);
+        // const findField = (parent: TField[], field: TField): TField[] => {
+        //     if (field.fieldKey == field.fieldKey) {
+        //         return field;
+        //     }
+        //     if (field.isContainer) {
+        //         field.fieldValue.forEach((f) => {
+        //             return findField(f);
+        //         });
+        //     }
+        //     return null;
+        // };
+        // console.log(findField(field));
     }, []);
 
     const handleFieldIntialized = useCallback((field: TField) => {
-        console.log("updateD!", field);
+        console.log("fieldInitialled", field);
     }, []);
+
+    useEffect(() => {
+        setState(fields);
+    }, [fields]);
 
     return (
         <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
