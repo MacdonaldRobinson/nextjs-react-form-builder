@@ -53,8 +53,7 @@ export default function Home() {
     };
 
     const onSubmitResetCode = () => {
-        console.log("rests", fields);
-        setStateFields(fields);
+        console.log("ran reset");
     };
 
     return (

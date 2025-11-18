@@ -14,6 +14,7 @@ const MomacoEditor = ({
     onSubmitNewCode,
     onSubmitResetCode,
 }: TMomacoEditor) => {
+    const [initialCode, setInitialCode] = useState<object>(code);
     const editorRef = useRef<editor.IStandaloneCodeEditor>(null);
 
     const [editorCode, setEditorCode] = useState<string>();
@@ -24,6 +25,8 @@ const MomacoEditor = ({
         monaco: Monaco
     ) => {
         editorRef.current = editor; // Save editor instance
+
+        updateEditorCode(code);
 
         window.addEventListener("reset", () => {
             editor.layout();
@@ -48,25 +51,20 @@ const MomacoEditor = ({
     };
 
     const handleReset = () => {
-        if (!editorRef) return;
+        if (!editorRef.current) return;
 
+        updateEditorCode(initialCode);
         onSubmitResetCode();
     };
 
     const handleSubmit = () => {
-        if (!editorRef) return;
+        if (!editorRef.current) return;
 
         const codeStr: string = editorRef.current?.getValue() ?? "";
         const newCode = JSON.parse(codeStr);
 
         onSubmitNewCode(newCode);
     };
-
-    useEffect(() => {
-        if (editorRef.current) {
-            updateEditorCode(code);
-        }
-    }, [code, editorRef]);
 
     return (
         <fieldset className="flex flex-col h-full w-full">
